@@ -1,82 +1,118 @@
+import React from 'react';
 import { Component } from 'react';
-import { ContactForm } from './contactForm/contactForm';
-import { ContactsList } from './contactList/contactList';
-import { Filter } from './contactFilter/contactFilter';
 import Notiflix from 'notiflix';
+
+import { Searchbar } from './searchbar';
+import { ImageGallery } from './imageGallery';
+import { Modal } from './modal';
+import { Loader } from 'components/loader';
+import { Button } from 'components/button';
+import { fetchImages } from 'API/fetchImages';
+
+import styles from './App.module.css';
 
 export class App extends Component {
   state = {
-    contacts: [
-      { id: 'id-1', name: 'Rosie Simpson', number: '459-12-56' },
-      { id: 'id-2', name: 'Hermione Kline', number: '443-89-12' },
-      { id: 'id-3', name: 'Eden Clements', number: '645-17-79' },
-      { id: 'id-4', name: 'Annie Copeland', number: '227-91-26' },
-    ],
-    filter: '',
+    query: '',
+    images: [],
+    page: 1,
+    totalImg: 0,
+    loading: false,
+    error: null,
+    isModal: false,
+    modalImg: null,
+    tags: '',
   };
 
-  componentDidMount() {
-    const contacts = localStorage.getItem('Contacts');
-    const parsedContacts = JSON.parse(contacts);
-    if (parsedContacts) {
-      this.setState({
-        contacts: parsedContacts,
-      });
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.query !== this.state.query && this.state.query !== '') {
+      this.setState({ images: [], page: 1 });
+      this.loadImages();
+    }
+
+    if (prevState.page !== this.state.page && this.state.page !== 1) {
+      this.loadImages();
     }
   }
 
-  componentDidUpdate(prevState) {
-    const { contacts } = this.state;
-    if (contacts !== prevState.contacts) {
-      localStorage.setItem('Contacts', JSON.stringify(contacts));
-    }
-  }
+  loadImages = () => {
+    const { page, query } = this.state;
+    this.setState({ loading: true, error: null });
+    fetchImages(query, page)
+      .then(images => {
+        const pictures = images.hits.map(
+          ({ id, webformatURL, tags, largeImageURL }) => ({
+            id,
+            webformatURL,
+            tags,
+            largeImageURL,
+          })
+        );
 
-  addContact = ({ id, name, number }) => {
-    const { contacts } = this.state;
-    if (
-      contacts.find(
-        contact => contact.name.toLowerCase() === name.toLowerCase()
-      )
-    )
-      return Notiflix.Notify.failure(`${name} is already in phonebook`);
+        if (!images.hits.length) {
+          Notiflix.Notify.failure(
+            'Sorry, there are no images matching your search query. Please try again.'
+          );
+        }
 
-    this.setState(prevState => {
-      return { contacts: [...prevState.contacts, { id, name, number }] };
-    });
+        if (page === 1 && images.hits.length) {
+          Notiflix.Notify.success(
+            `Hooray! We found ${images.totalHits} images.`
+          );
+        }
+
+        const totalPage = images.totalHits / (page * images.hits.length);
+        if (totalPage <= 1) {
+          Notiflix.Notify.info(
+            `We're sorry, but you've reached the end of search results.`
+          );
+        }
+
+        this.setState(prevState => ({
+          images: [...prevState.images, ...pictures],
+          totalImg: images.totalHits,
+        }));
+      })
+      .catch(error => this.setState({ error }))
+      .finally(() => this.setState({ loading: false }));
   };
 
-  removeContact = id => {
+  changeSearch = query => {
+    this.setState({ query: query, page: 1, images: [] });
+  };
+
+  handleLoadMore = () => {
+    this.setState(prevState => ({ page: prevState.page + 1 }));
+  };
+
+  toggleModal = (modalImg = null, tags = '') => {
     this.setState(prevState => ({
-      contacts: prevState.contacts.filter(contact => contact.id !== id),
+      isModal: !prevState.isModal,
+      modalImg,
+      tags,
     }));
   };
 
-  getContacts = () => {
-    const { filter, contacts } = this.state;
-    const filterNormalize = filter.toLowerCase();
-    return contacts.filter(contact =>
-      contact.name.toLowerCase().includes(filterNormalize)
-    );
-  };
-
-  filterContacts = element => {
-    this.setState({ filter: element.currentTarget.value });
-  };
-
   render() {
-    const { filter } = this.state;
+    const { isModal, modalImg, tags, loading, images, totalImg, error } =
+      this.state;
     return (
-      <>
-        <h1>Phonebook</h1>
-        <ContactForm onSubmitData={this.addContact} />
-        <h2>Contacts</h2>
-        <Filter value={filter} onChange={this.filterContacts} />
-        <ContactsList
-          contacts={this.getContacts()}
-          handleRemove={this.removeContact}
-        />
-      </>
+      <div className={styles.App}>
+        <Searchbar changeSearch={this.changeSearch} />
+        <ImageGallery images={images} toggleModal={this.toggleModal} />
+        {loading && <Loader />}
+        {images.length > 0 && images.length < totalImg && (
+          <Button handleLoadMore={this.handleLoadMore} />
+        )}
+        {isModal && (
+          <Modal
+            modalImg={modalImg}
+            onCloseModal={this.toggleModal}
+            tags={tags}
+          />
+        )}
+        {error && <>{error.message}</>}
+      </div>
     );
   }
 }
