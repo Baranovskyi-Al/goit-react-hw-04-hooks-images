@@ -4,8 +4,8 @@ import Notiflix from 'notiflix';
 import { Searchbar } from './Searchbar';
 import { ImageGallery } from './ImageGallery';
 import { Modal } from './Modal';
-import { Loader } from 'components/Loader';
-import { Button } from 'components/Button';
+import { Loader } from './Loader';
+import { Button } from './Button';
 import { fetchImages } from 'API/fetchImages';
 
 import styles from './App.module.css';
