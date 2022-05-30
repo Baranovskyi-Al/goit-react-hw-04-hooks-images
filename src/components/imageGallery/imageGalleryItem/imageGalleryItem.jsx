@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 
-import styles from './imageGalleryItem.module.css';
+import styles from './ImageGalleryItem.module.css';
 
 export const ImageGalleryItem = ({ image, onModalOpen }) => {
   const { webformatURL, largeImageURL, tags } = image;

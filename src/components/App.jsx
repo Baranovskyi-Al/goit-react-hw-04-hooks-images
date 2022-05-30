@@ -1,43 +1,31 @@
-import React from 'react';
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import Notiflix from 'notiflix';
 
-import { Searchbar } from './searchbar';
-import { ImageGallery } from './imageGallery';
-import { Modal } from './modal';
-import { Loader } from 'components/loader';
-import { Button } from 'components/button';
+import { Searchbar } from './Searchbar';
+import { ImageGallery } from './ImageGallery';
+import { Modal } from './Modal';
+import { Loader } from 'components/Loader';
+import { Button } from 'components/Button';
 import { fetchImages } from 'API/fetchImages';
 
 import styles from './App.module.css';
 
-export class App extends Component {
-  state = {
-    query: '',
-    images: [],
-    page: 1,
-    totalImg: 0,
-    loading: false,
-    error: null,
-    isModal: false,
-    modalImg: null,
-    tags: '',
-  };
+export const App = () => {
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [tags, setTags] = useState('');
+  const [images, setImages] = useState([]);
+  const [totalImg, setTotalImg] = useState(0);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [isModal, setIsModal] = useState(false);
+  const [modalImg, setModalImg] = useState(null);
 
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.query !== this.state.query && this.state.query !== '') {
-      this.setState({ images: [], page: 1 });
-      this.loadImages();
+  useEffect(() => {
+    if (query === '') {
+      return;
     }
-
-    if (prevState.page !== this.state.page && this.state.page !== 1) {
-      this.loadImages();
-    }
-  }
-
-  loadImages = () => {
-    const { page, query } = this.state;
-    this.setState({ loading: true, error: null });
+    setLoading(true);
     fetchImages(query, page)
       .then(images => {
         const pictures = images.hits.map(
@@ -67,52 +55,41 @@ export class App extends Component {
             `We're sorry, but you've reached the end of search results.`
           );
         }
-
-        this.setState(prevState => ({
-          images: [...prevState.images, ...pictures],
-          totalImg: images.totalHits,
-        }));
+        setImages(images => [...images, ...pictures]);
+        setTotalImg(images.totalHits);
       })
-      .catch(error => this.setState({ error }))
-      .finally(() => this.setState({ loading: false }));
+      .catch(error => setError(error))
+      .finally(() => setLoading(false));
+  }, [page, query]);
+
+  const handleLoadMore = element => {
+    setPage(page + 1);
   };
 
-  changeSearch = query => {
-    this.setState({ query: query, page: 1, images: [] });
+  const changeSearch = query => {
+    setQuery(query);
+    setPage(1);
+    setImages([]);
   };
 
-  handleLoadMore = () => {
-    this.setState(prevState => ({ page: prevState.page + 1 }));
+  const toggleModal = (modalImg, tags) => {
+    setIsModal(!isModal);
+    setModalImg(modalImg);
+    setTags(tags);
   };
 
-  toggleModal = (modalImg = null, tags = '') => {
-    this.setState(prevState => ({
-      isModal: !prevState.isModal,
-      modalImg,
-      tags,
-    }));
-  };
-
-  render() {
-    const { isModal, modalImg, tags, loading, images, totalImg, error } =
-      this.state;
-    return (
-      <div className={styles.App}>
-        <Searchbar changeSearch={this.changeSearch} />
-        <ImageGallery images={images} toggleModal={this.toggleModal} />
-        {loading && <Loader />}
-        {images.length > 0 && images.length < totalImg && (
-          <Button handleLoadMore={this.handleLoadMore} />
-        )}
-        {isModal && (
-          <Modal
-            modalImg={modalImg}
-            onCloseModal={this.toggleModal}
-            tags={tags}
-          />
-        )}
-        {error && <>{error.message}</>}
-      </div>
-    );
-  }
-}
+  return (
+    <div className={styles.App}>
+      <Searchbar changeSearch={changeSearch} />
+      <ImageGallery images={images} toggleModal={toggleModal} />
+      {loading && <Loader />}
+      {images.length > 0 && images.length < totalImg && (
+        <Button handleLoadMore={handleLoadMore} />
+      )}
+      {isModal && (
+        <Modal modalImg={modalImg} onCloseModal={toggleModal} tags={tags} />
+      )}
+      {error && <>{error.message}</>}
+    </div>
+  );
+};
